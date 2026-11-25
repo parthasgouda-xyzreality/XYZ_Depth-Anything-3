@@ -17,7 +17,7 @@ from depth_anything_3.utils.export.gs import export_to_gs_ply, export_to_gs_vide
 
 from .depth_vis import export_to_depth_vis
 from .feat_vis import export_to_feat_vis
-from .glb import export_to_glb
+from .glb import export_to_glb, export_to_glb_segmented
 from .npz import export_to_mini_npz, export_to_npz
 
 
@@ -47,6 +47,8 @@ def export(
         export_to_gs_ply(prediction, export_dir, **kwargs.get(export_format, {}))
     elif export_format == "gs_video":
         export_to_gs_video(prediction, export_dir, **kwargs.get(export_format, {}))
+    elif export_format == "segmented_pointcloud":
+        export_to_glb_segmented(prediction, export_dir, **kwargs.get(export_format, {}))
     else:
         raise ValueError(f"Unsupported export format: {export_format}")
 

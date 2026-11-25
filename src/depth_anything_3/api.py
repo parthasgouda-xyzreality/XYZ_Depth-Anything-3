@@ -176,6 +176,8 @@ class DepthAnything3(nn.Module, PyTorchModelHubMixin):
         if "gs" in export_format:
             assert infer_gs, "must set `infer_gs=True` to perform gs-related export."
 
+        seg_ext = extrinsics
+        seg_intr = intrinsics
         # Preprocess images
         imgs_cpu, extrinsics, intrinsics = self._preprocess_inputs(
             image, extrinsics, intrinsics, process_res, process_res_method
@@ -237,6 +239,32 @@ class DepthAnything3(nn.Module, PyTorchModelHubMixin):
                 export_kwargs["feat_vis"].update(
                     {
                         "fps": feat_vis_fps,
+                    }
+                )
+            # Add segmented pointcloud export parameters
+            if "segmented_pointcloud" in export_format:
+                segmented_image_list = ['/segmented_images/'.join(img_path.rsplit('/images/', 1)) if isinstance(img_path, str) else img_path for img_path in image]
+                segmented_imgs_cpu, extrinsics, intrinsics = self._preprocess_inputs(segmented_image_list, seg_ext, seg_intr, process_res, process_res_method)
+
+                """Add processed images to prediction for visualization."""
+                # Convert from (N, 3, H, W) to (N, H, W, 3) and denormalize
+                processed_seg_imgs = segmented_imgs_cpu.permute(0, 2, 3, 1).cpu().numpy()  # (N, H, W, 3)
+
+                # Denormalize from ImageNet normalization
+                seg_mean = np.array([0.485, 0.456, 0.406])
+                seg_std = np.array([0.229, 0.224, 0.225])
+                processed_seg_imgs = processed_seg_imgs * seg_std + seg_mean
+                processed_seg_imgs = np.clip(processed_seg_imgs, 0, 1)
+                processed_seg_imgs = (processed_seg_imgs * 255).astype(np.uint8)
+
+                if "segmented_pointcloud" not in export_kwargs:
+                    export_kwargs["segmented_pointcloud"] = {}
+                export_kwargs["segmented_pointcloud"].update(
+                    {
+                        "conf_thresh_percentile": conf_thresh_percentile,
+                        "num_max_points": num_max_points,
+                        "show_cameras": show_cameras,
+                        "segmented_images": processed_seg_imgs,
                     }
                 )
             self._export_results(prediction, export_format, export_dir, **export_kwargs)
